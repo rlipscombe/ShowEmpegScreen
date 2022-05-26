@@ -14,8 +14,6 @@ namespace ShowScreen
 	/// </summary>
 	public class MainForm : System.Windows.Forms.Form
 	{
-		private System.Windows.Forms.Timer timer;
-		private System.Windows.Forms.Label timeLabel;
 		private System.Windows.Forms.PictureBox picture;
 		private System.ComponentModel.IContainer components;
 
@@ -53,27 +51,12 @@ namespace ShowScreen
 		/// </summary>
 		private void InitializeComponent()
 		{
-			this.components = new System.ComponentModel.Container();
-			this.timer = new System.Windows.Forms.Timer(this.components);
-			this.timeLabel = new System.Windows.Forms.Label();
 			this.picture = new System.Windows.Forms.PictureBox();
 			this.SuspendLayout();
 			// 
-			// timer
-			// 
-			this.timer.Enabled = true;
-			this.timer.Tick += new System.EventHandler(this.MainForm_Tick);
-			// 
-			// timeLabel
-			// 
-			this.timeLabel.Location = new System.Drawing.Point(8, 8);
-			this.timeLabel.Name = "timeLabel";
-			this.timeLabel.TabIndex = 0;
-			this.timeLabel.Text = "hh:mm:ss";
-			// 
 			// picture
 			// 
-			this.picture.Location = new System.Drawing.Point(8, 40);
+			this.picture.Location = new System.Drawing.Point(8, 8);
 			this.picture.Name = "picture";
 			this.picture.Size = new System.Drawing.Size(128, 32);
 			this.picture.TabIndex = 1;
@@ -82,11 +65,13 @@ namespace ShowScreen
 			// MainForm
 			// 
 			this.AutoScaleBaseSize = new System.Drawing.Size(5, 13);
-			this.ClientSize = new System.Drawing.Size(160, 85);
+			this.ClientSize = new System.Drawing.Size(144, 45);
 			this.Controls.Add(this.picture);
-			this.Controls.Add(this.timeLabel);
+			this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
+			this.MaximizeBox = false;
 			this.Name = "MainForm";
 			this.Text = "empeg Screen";
+			this.Load += new System.EventHandler(this.MainForm_Load);
 			this.ResumeLayout(false);
 
 		}
@@ -101,19 +86,44 @@ namespace ShowScreen
 			Application.Run(new MainForm());
 		}
 
-		private void MainForm_Tick(object sender, System.EventArgs e)
+		private void MainForm_Load(object sender, System.EventArgs e)
 		{
-			DateTime now = DateTime.Now;
-			timeLabel.Text = now.ToLongTimeString();
+			try
+			{
+				// Kick off the first request:
+				WebRequest newRequest = WebRequest.Create(empegScreenURL);
+				newRequest.BeginGetResponse(new AsyncCallback(MainForm_GetResponse), newRequest);
+			}
+			catch (Exception ex)
+			{
+				string message = String.Format("Exception in response callback: {0}", ex.Message);
+				MessageBox.Show(message);
+			}
+		}
 
-			WebRequest req = WebRequest.Create(@"http://crowley/proc/empeg_screen.png");
-			WebResponse rsp = req.GetResponse();
+		private string empegScreenURL = @"http://crowley/proc/empeg_screen.png";
 
-			Stream stream = rsp.GetResponseStream();
-			Image img = Image.FromStream(stream);
-			picture.Image = img;
+		private void MainForm_GetResponse(IAsyncResult ar)
+		{
+			try
+			{
+				WebRequest currentRequest = (WebRequest)ar.AsyncState;
+				WebResponse rsp = currentRequest.EndGetResponse(ar);
+				Stream stream = rsp.GetResponseStream();
+				Image img = Image.FromStream(stream);
+				picture.Image = img;
 
-			rsp.Close();
+				rsp.Close();
+
+				// Issue another one:
+				WebRequest newRequest = WebRequest.Create(empegScreenURL);
+				newRequest.BeginGetResponse(new AsyncCallback(MainForm_GetResponse), newRequest);
+			}
+			catch (Exception ex)
+			{
+				string message = String.Format("Exception in response callback: {0}", ex.Message);
+				MessageBox.Show(message);
+			}
 		}
 	}
 }
